@@ -1,0 +1,71 @@
+hostname R1
+no ip domain-lookup
+
+interface GigabitEthernet1
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+ exit
+
+interface GigabitEthernet2
+ ip address 192.168.20.1 255.255.255.0
+ no shutdown
+ exit
+
+crypto ikev2 proposal IKEV2-PROP
+ encryption des
+ integrity sha256
+ group 14
+ exit
+
+crypto ikev2 policy IKEV2-POL
+ proposal IKEV2-PROP
+ exit
+
+crypto ikev2 keyring IKEV2-KEY
+ peer FORTIGATE
+  address 192.168.20.2
+  pre-shared-key local VPNKey123
+  pre-shared-key remote VPNKey123
+ exit
+
+crypto ikev2 profile IKEV2-PROF
+ match identity remote address 192.168.20.2 255.255.255.255
+ authentication remote pre-share
+ authentication local pre-share
+ keyring local IKEV2-KEY
+ exit
+
+crypto ipsec transform-set IPSEC-TSET esp-des esp-sha256-hmac
+ mode transport
+ exit
+
+crypto ipsec profile IPSEC-PROF
+ set transform-set IPSEC-TSET
+ set ikev2-profile IKEV2-PROF
+ exit
+
+interface Tunnel0
+ ip address 10.0.0.1 255.255.255.252
+ tunnel source GigabitEthernet2
+ tunnel destination 192.168.20.2
+ tunnel protection ipsec profile IPSEC-PROF
+ no shutdown
+ exit
+
+
+configure terminal
+
+! Enable OSPF process 1
+router ospf 1
+ router-id 1.1.1.1
+ network 10.0.0.0 0.0.0.3 area 0
+ network 192.168.1.0 0.0.0.255 area 0
+ exit
+
+! Set Tunnel0 as point-to-point for OSPF
+interface Tunnel0
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ exi
+end
+write memory
